@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meal Replacement Tracker</title>
+<style>
+  :root{
+    --brand:#9E1B32; --brand-dark:#7d1526; --navy:#1F3864;
+    --bg:#f4f5f7; --card:#ffffff; --line:#e3e6eb; --text:#1f2430; --muted:#6b7280;
+    --pending:#b45309; --pending-bg:#fef3c7; --done:#15803d; --done-bg:#dcfce7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg);color:var(--text);font-size:15px}
+  header{background:var(--brand);color:#fff;padding:14px 22px;display:flex;align-items:center;
+    justify-content:space-between;flex-wrap:wrap;gap:10px}
+  header h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.2px}
+  header .mode{font-size:12px;opacity:.9;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px}
+  .wrap{max-width:1150px;margin:0 auto;padding:20px}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .toolbar .grow{flex:1}
+  input,select,textarea{font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);
+    border-radius:8px;background:#fff;color:var(--text);width:100%}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--navy);outline-offset:-1px;border-color:var(--navy)}
+  button{font-family:inherit;font-size:14px;font-weight:600;border:none;border-radius:8px;padding:9px 16px;
+    cursor:pointer;transition:.15s}
+  .btn-primary{background:var(--brand);color:#fff}
+  .btn-primary:hover{background:var(--brand-dark)}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+  .btn-ghost:hover{border-color:var(--navy);color:var(--navy)}
+  .search{max-width:280px}
+  .filter{max-width:190px}
+  .viewtabs{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .viewtabs .tab{background:#fff;border:none;border-radius:0;padding:9px 15px;color:var(--muted);font-weight:600}
+  .viewtabs .tab.active{background:var(--navy);color:#fff}
+  .banner{background:#fff8e6;border:1px solid #f2d98a;color:#7a5b00;padding:10px 14px;border-radius:8px;
+    font-size:13px;margin-bottom:16px;display:flex;gap:8px;align-items:flex-start}
+  table{width:100%;border-collapse:collapse;background:var(--card);border-radius:10px;overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  thead th{background:var(--navy);color:#fff;text-align:left;padding:11px 12px;font-size:12.5px;
+    text-transform:uppercase;letter-spacing:.4px;font-weight:600;white-space:nowrap}
+  tbody td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+  tbody tr:hover{background:#f8fafc;cursor:pointer}
+  .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+  .pill.pending{background:var(--pending-bg);color:var(--pending)}
+  .pill.done{background:var(--done-bg);color:var(--done)}
+  .empty{text-align:center;color:var(--muted);padding:44px 12px}
+  .count{color:var(--muted);font-size:13px}
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(15,20,35,.55);display:none;align-items:flex-start;
+    justify-content:center;padding:30px 16px;overflow:auto;z-index:50}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border-radius:12px;width:100%;max-width:620px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .modal h2{margin:0;padding:18px 22px;border-bottom:1px solid var(--line);font-size:17px;color:var(--navy)}
+  .modal .body{padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .modal .body .full{grid-column:1 / -1}
+  .modal .body .section-head{grid-column:1 / -1;font-size:12.5px;font-weight:700;color:var(--navy);
+    text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--brand);
+    padding-bottom:6px;margin-bottom:2px}
+  .modal .body .section-head.second{margin-top:16px}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:5px}
+  .req{color:var(--brand)}
+  .modal .foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;
+    gap:10px;align-items:center}
+  .modal .foot .right{display:flex;gap:10px}
+  .btn-danger{background:#fff;border:1px solid #f0c2c2;color:#b3261e}
+  .btn-danger:hover{background:#fdeaea}
+  @media(max-width:600px){.modal .body{grid-template-columns:1fr}}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🍽️ Meal Replacement Tracker</h1>
+  <span class="mode" id="modeTag">Local demo mode</span>
+</header>
+
+<div class="wrap">
+  <div class="banner" id="demoBanner">
+    <span>⚠️</span>
+    <span><strong>Demo mode:</strong> records are saved only in this browser and are not shared with other users.
+    To make this a shared, multi-user tracker, connect your Google Sheet by pasting your Apps Script URL into the CONFIG section near the top of this file (see the setup guide).</span>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn-primary" id="newBtn" onclick="openModal()">+ New Record</button>
+    <div class="viewtabs">
+      <button id="tabActive" class="tab active" onclick="setView('active')">Active</button>
+      <button id="tabArchive" class="tab" onclick="setView('archive')">Archived</button>
+    </div>
+    <select class="filter" id="statusFilter" onchange="render()">
+      <option value="">All statuses</option>
+      <option value="Pending">Pending only</option>
+      <option value="Received">Received only</option>
+    </select>
+    <input class="search" id="search" placeholder="Search name, contact or transaction #…" oninput="render()" />
+    <div class="grow"></div>
+    <span class="count" id="count"></span>
+    <button class="btn-ghost" id="archiveBtn" onclick="archiveNow()">Archive now</button>
+    <button class="btn-ghost" id="refreshBtn" onclick="refresh()">Refresh</button>
+    <button class="btn-ghost" id="sheetBtn" onclick="openSheet()">Open Google Sheet</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Guest</th><th>Order date</th><th>Transaction #</th><th>How received</th><th>Issue</th>
+        <th>Replacement</th><th>Status</th><th>Recorded by</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">No records yet. Click <strong>+ New Record</strong> to add one.</div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">New Record</h2>
+    <div class="body">
+      <input type="hidden" id="f_id" />
+
+      <div class="section-head">1 &middot; Original issue &amp; transaction</div>
+
+      <div>
+        <label>Guest name <span class="req">*</span></label>
+        <input id="f_guest_name" />
+      </div>
+      <div>
+        <label>Guest contact</label>
+        <input id="f_guest_contact" placeholder="Email or phone number" />
+      </div>
+      <div>
+        <label>Date of original order <span class="req">*</span></label>
+        <input type="date" id="f_order_date" />
+      </div>
+      <div>
+        <label>Original transaction # <span class="req">*</span></label>
+        <input id="f_transaction_number" />
+      </div>
+      <div>
+        <label>Receipt provided? <span class="req">*</span></label>
+        <select id="f_receipt_provided">
+          <option value="">—</option><option>Yes</option><option>No</option>
+        </select>
+      </div>
+      <div>
+        <label>How complaint was received <span class="req">*</span></label>
+        <select id="f_complaint_channel">
+          <option value="">—</option>
+          <option>In person</option>
+          <option>Phone</option>
+          <option>CARES</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div>
+        <label>Issue type <span class="req">*</span></label>
+        <select id="f_issue_type">
+          <option value="">—</option>
+          <option>Wrong order given</option>
+          <option>Order made incorrectly</option>
+          <option>Quality not as expected</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="full">
+        <label>Issue details</label>
+        <textarea id="f_issue_details" rows="2" placeholder="What exactly was wrong?"></textarea>
+      </div>
+      <div>
+        <label>Recorded by <span class="req">*</span></label>
+        <input id="f_recorded_by" list="staffList" />
+        <div class="hint">Who logged the issue.</div>
+      </div>
+
+      <div class="section-head second">2 &middot; Replacement</div>
+
+      <div>
+        <label>Replacement item <span class="req">*</span></label>
+        <input id="f_replacement_item" />
+      </div>
+      <div>
+        <label>Replacement transaction #</label>
+        <input id="f_replacement_transaction_number" />
+        <div class="hint">Transaction # for the replacement order.</div>
+      </div>
+      <div>
+        <label>Replacement status</label>
+        <select id="f_replacement_status" onchange="toggleReceived()">
+          <option>Pending</option><option>Received</option>
+        </select>
+      </div>
+      <div>
+        <label>Date replacement received</label>
+        <input type="date" id="f_date_received" />
+        <div class="hint">Fill in when status is “Received”.</div>
+      </div>
+      <div>
+        <label>Replacement provided by <span class="req" id="providedReq" style="display:none">*</span></label>
+        <input id="f_provided_by" list="staffList" />
+        <div class="hint">Required once the replacement is received.</div>
+      </div>
+      <div class="full">
+        <label>Notes</label>
+        <textarea id="f_notes" rows="2"></textarea>
+      </div>
+      <datalist id="staffList"></datalist>
+    </div>
+    <div class="foot">
+      <button class="btn-danger" id="deleteBtn" onclick="deleteRecord()" style="display:none">Delete</button>
+      <div class="right">
+        <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="saveRecord()">Save record</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG  —  edit this section to turn on shared, multi-user mode
+   ============================================================ */
+const CONFIG = {
+  // Paste the Web app URL from your Google Apps Script deployment
+  // (it ends in /exec). Leave blank to keep running in local demo mode.
+  API_URL: "https://script.google.com/macros/s/AKfycbya4mS_Y7sd5I4bThJBBjhb9fprxNLSmztfg3MZdAGbvPgd5DE0Lb3ezAHeGdJDTsMT/exec",
+
+  // Optional: link to your Google Sheet so the "Open Google Sheet"
+  // button works. Copy it from the browser address bar of your sheet.
+  SHEET_URL: "https://docs.google.com/spreadsheets/d/1JPu1olLiDfSQsh0Nrn-bhIYtI_KMwILuEAdFIbxZR7s/edit?usp=sharing",
+
+  // Names that appear in the "Recorded by" / "Provided by" dropdowns.
+  STAFF: ["", ""],
+
+  // Received records older than this many days move to the Archive.
+  // (Match this to ARCHIVE_AFTER_DAYS in the Google Apps Script file.)
+  ARCHIVE_AFTER_DAYS: 30
+};
+/* ============================================================
+   No changes needed below this line.
+   ============================================================ */
+
+const CLOUD = !!CONFIG.API_URL;
+const LS_KEY = "meal_replacement_records";
+const ARCHIVE_DAYS = CONFIG.ARCHIVE_AFTER_DAYS || 30;
+let records = [];
+let currentView = "active";   // "active" or "archive"
+
+/* ---------- data layer (Google Apps Script) ---------- */
+// GET returns the list (add ?view=archive for archived rows). POST {action,...}
+// performs a write and returns the fresh active list. text/plain avoids a CORS preflight.
+async function apiGet(url){
+  const res = await fetch(url, { method:"GET" });
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+async function apiPost(payload){
+  const res = await fetch(CONFIG.API_URL, {
+    method:"POST",
+    headers:{ "Content-Type":"text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  });
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  const data = await res.json();
+  if(data && data.error) throw new Error(data.error);
+  return data;
+}
+
+/* local (demo) storage helpers */
+function lsAll(){ return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
+function lsSave(arr){ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+function autoArchiveLocal(){
+  const cutoff = Date.now() - ARCHIVE_DAYS*86400000;
+  const arr = lsAll(); let changed = false;
+  arr.forEach(r=>{
+    if(!r.archived && r.replacement_status === "Received"){
+      const t = new Date(r.date_received || r.created_at || 0).getTime();
+      if(t && t < cutoff){ r.archived = true; changed = true; }
+    }
+  });
+  if(changed) lsSave(arr);
+}
+
+async function loadRecords(){
+  if(CLOUD){
+    const url = CONFIG.API_URL + (currentView === "archive" ? "?view=archive" : "");
+    records = await apiGet(url);
+  } else {
+    autoArchiveLocal();
+    records = lsAll().filter(r => currentView === "archive" ? r.archived : !r.archived);
+  }
+}
+
+async function createRecord(rec){
+  if(CLOUD){ records = await apiPost({ action:"create", record: rec }); }
+  else {
+    const arr = lsAll();
+    rec.id = "r" + Date.now(); rec.created_at = new Date().toISOString();
+    arr.unshift(rec); lsSave(arr); await loadRecords();
+  }
+}
+async function updateRecord(id, rec){
+  if(CLOUD){ records = await apiPost({ action:"update", id: id, record: rec }); }
+  else {
+    const arr = lsAll(); const i = arr.findIndex(r=>r.id==id);
+    if(i>-1){ arr[i] = {...arr[i], ...rec}; lsSave(arr); }
+    await loadRecords();
+  }
+}
+async function removeRecord(id){
+  if(CLOUD){ records = await apiPost({ action:"delete", id: id }); }
+  else { lsSave(lsAll().filter(r=>r.id!=id)); await loadRecords(); }
+}
+async function archiveNow(){
+  if(!confirm("Archive all received records older than " + ARCHIVE_DAYS + " days?")) return;
+  try{
+    if(CLOUD){ records = await apiPost({ action:"archiveNow" }); }
+    else { autoArchiveLocal(); await loadRecords(); }
+    render();
+  }catch(e){ alert("Could not archive.\n\n"+e.message); }
+}
+async function refresh(){
+  try{ await loadRecords(); render(); }
+  catch(e){ alert("Could not refresh.\n\n"+e.message); }
+}
+function openSheet(){
+  if(CONFIG.SHEET_URL) window.open(CONFIG.SHEET_URL, "_blank");
+  else alert("Add your Google Sheet link to CONFIG.SHEET_URL to use this button.");
+}
+function setView(v){
+  currentView = v;
+  document.getElementById("tabActive").classList.toggle("active", v === "active");
+  document.getElementById("tabArchive").classList.toggle("active", v === "archive");
+  const archiving = v === "archive";
+  document.getElementById("newBtn").style.display = archiving ? "none" : "";
+  document.getElementById("archiveBtn").style.display = archiving ? "none" : "";
+  refresh();
+}
+
+/* ---------- rendering ---------- */
+function esc(s){ return (s??"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtDate(d){ if(!d) return ""; const x=new Date(d+"T00:00:00"); return isNaN(x)? d : x.toLocaleDateString(); }
+
+function render(){
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const sf = document.getElementById("statusFilter").value;
+  let list = records.filter(r=>{
+    if(sf && (r.replacement_status||"Pending")!==sf) return false;
+    if(q){
+      const hay = ((r.guest_name||"")+" "+(r.guest_contact||"")+" "+
+        (r.transaction_number||"")+" "+(r.replacement_transaction_number||"")).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  const rows = document.getElementById("rows");
+  const archiving = currentView === "archive";
+  const empty = document.getElementById("empty");
+  empty.style.display = list.length ? "none" : "block";
+  empty.innerHTML = archiving
+    ? "No archived records yet. Received records older than " + ARCHIVE_DAYS + " days move here automatically."
+    : "No records yet. Click <strong>+ New Record</strong> to add one.";
+  document.getElementById("count").textContent =
+    list.length + " of " + records.length + (archiving ? " archived" : "") +
+    " record" + (records.length===1?"":"s");
+  rows.innerHTML = list.map(r=>{
+    const done = (r.replacement_status||"Pending")==="Received";
+    const rowAttr = archiving ? 'style="cursor:default"' : `onclick="openModal('${r.id}')"`;
+    return `<tr ${rowAttr}>
+      <td><strong>${esc(r.guest_name)}</strong></td>
+      <td>${esc(fmtDate(r.order_date))}</td>
+      <td>${esc(r.transaction_number)}</td>
+      <td>${esc(r.complaint_channel)}</td>
+      <td>${esc(r.issue_type)}</td>
+      <td>${esc(r.replacement_item)}</td>
+      <td><span class="pill ${done?"done":"pending"}">${done?"Received":"Pending"}</span></td>
+      <td>${esc(r.recorded_by)}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ---------- modal ---------- */
+const F = ["id","guest_name","guest_contact","order_date","transaction_number","receipt_provided","complaint_channel",
+  "issue_type","issue_details","replacement_item","replacement_transaction_number","recorded_by",
+  "replacement_status","date_received","provided_by","notes"];
+
+function openModal(id){
+  document.getElementById("overlay").classList.add("open");
+  const rec = id!=null ? records.find(r=>r.id==id) : null;
+  document.getElementById("modalTitle").textContent = rec ? "Edit Record" : "New Record";
+  document.getElementById("deleteBtn").style.display = rec ? "inline-block" : "none";
+  F.forEach(f=>{
+    const el = document.getElementById("f_"+f); if(!el) return;
+    el.value = rec ? (rec[f] ?? "") : "";
+  });
+  if(!rec){
+    document.getElementById("f_replacement_status").value = "Pending";
+    document.getElementById("f_order_date").value = new Date().toISOString().slice(0,10);
+  }
+  syncReceivedUI();
+}
+function closeModal(){ document.getElementById("overlay").classList.remove("open"); }
+function syncReceivedUI(){
+  const s = document.getElementById("f_replacement_status").value;
+  document.getElementById("providedReq").style.display = s==="Received" ? "inline" : "none";
+}
+function toggleReceived(){
+  const s = document.getElementById("f_replacement_status").value;
+  const d = document.getElementById("f_date_received");
+  if(s==="Received" && !d.value) d.value = new Date().toISOString().slice(0,10);
+  syncReceivedUI();
+}
+
+async function saveRecord(){
+  const rec = {};
+  F.forEach(f=>{ if(f!=="id"){ const el=document.getElementById("f_"+f); if(el) rec[f]=el.value||null; }});
+  const missing = [];
+  if(!rec.guest_name) missing.push("Guest name");
+  if(!rec.order_date) missing.push("Date of original order");
+  if(!rec.transaction_number) missing.push("Transaction #");
+  if(!rec.receipt_provided) missing.push("Receipt provided");
+  if(!rec.complaint_channel) missing.push("How complaint was received");
+  if(!rec.issue_type) missing.push("Issue type");
+  if(!rec.replacement_item) missing.push("Replacement item");
+  if(!rec.recorded_by) missing.push("Recorded by");
+  if(rec.replacement_status === "Received" && !rec.provided_by)
+    missing.push("Replacement provided by (required once received)");
+  if(missing.length){ alert("Please fill in: " + missing.join(", ")); return; }
+
+  const id = document.getElementById("f_id").value;
+  try{
+    if(id) await updateRecord(id, rec);
+    else await createRecord(rec);
+    closeModal(); render();
+  }catch(e){ alert("Could not save.\n\n"+e.message); }
+}
+async function deleteRecord(){
+  const id = document.getElementById("f_id").value;
+  if(!id) return;
+  if(!confirm("Delete this record permanently?")) return;
+  try{ await removeRecord(id); closeModal(); render(); }
+  catch(e){ alert("Could not delete.\n\n"+e.message); }
+}
+
+/* ---------- init ---------- */
+(async function(){
+  // staff dropdown
+  document.getElementById("staffList").innerHTML =
+    CONFIG.STAFF.filter(Boolean).map(n=>`<option value="${esc(n)}">`).join("");
+  // mode UI
+  const sheetBtn = document.getElementById("sheetBtn");
+  if(CLOUD){
+    document.getElementById("modeTag").textContent = "Shared · Google Sheets";
+    document.getElementById("demoBanner").style.display = "none";
+  } else {
+    // In demo mode there's no sheet to open or server to refresh.
+    sheetBtn.style.display = "none";
+    document.getElementById("refreshBtn").style.display = "none";
+  }
+  try{ await loadRecords(); }
+  catch(e){ alert("Could not load records from Google.\n\n"+e.message+
+    "\n\nCheck that CONFIG.API_URL is the Web app URL ending in /exec, and that the deployment access is set to \"Anyone\"."); }
+  render();
+})();
+document.getElementById("overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") closeModal(); });
+</script>
+</body>
+</html>
