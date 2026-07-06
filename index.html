@@ -341,7 +341,8 @@ function setView(v){
 
 /* ---------- rendering ---------- */
 function esc(s){ return (s??"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-function fmtDate(d){ if(!d) return ""; const x=new Date(d+"T00:00:00"); return isNaN(x)? d : x.toLocaleDateString(); }
+function dateOnly(d){ return d ? String(d).slice(0,10) : ""; }   // handles full ISO timestamps from Sheets
+function fmtDate(d){ if(!d) return ""; const x=new Date(dateOnly(d)+"T00:00:00"); return isNaN(x)? d : x.toLocaleDateString(); }
 
 function render(){
   const q = document.getElementById("search").value.trim().toLowerCase();
@@ -393,7 +394,9 @@ function openModal(id){
   document.getElementById("deleteBtn").style.display = rec ? "inline-block" : "none";
   F.forEach(f=>{
     const el = document.getElementById("f_"+f); if(!el) return;
-    el.value = rec ? (rec[f] ?? "") : "";
+    let v = rec ? (rec[f] ?? "") : "";
+    if(el.type === "date" && v) v = dateOnly(v);   // date inputs need YYYY-MM-DD, not a timestamp
+    el.value = v;
   });
   if(!rec){
     document.getElementById("f_replacement_status").value = "Pending";
